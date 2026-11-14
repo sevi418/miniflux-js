@@ -136,7 +136,8 @@ describe('MinifluxClient Integration Tests', () => {
 
     it('should create and delete feed', async () => {
       // Create feed
-      testFeed = await client.createFeed('https://blog.rust-lang.org/feed.xml')
+      const { feed_id } = await client.createFeed('https://blog.rust-lang.org/feed.xml')
+      testFeed = await client.getFeed(feed_id)
       expect(testFeed).toHaveProperty('id')
       expect(testFeed.feed_url).toBe('https://blog.rust-lang.org/feed.xml')
 

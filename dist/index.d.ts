@@ -12,7 +12,11 @@ interface Feed {
     site_url: string;
     feed_url: string;
     category?: Category;
-    icon?: FeedIcon;
+    category_id?: number;
+    icon?: {
+        feed_id: number;
+        icon_id: number;
+    } | null;
     etag_header?: string;
     last_modified_header?: string;
     crawler?: boolean;
@@ -132,6 +136,15 @@ interface EntryUpdatePayload {
 interface EntryStatus {
     status: 'read' | 'unread';
 }
+interface VersionInfo {
+    version: string;
+    commit: string;
+    build_date: string;
+    go_version: string;
+    compiler: string;
+    arch: string;
+    os: string;
+}
 
 /**
  * MinifluxClient provides a TypeScript interface to interact with the Miniflux RSS reader API.
@@ -172,9 +185,11 @@ declare class MinifluxClient {
      * Creates a new feed.
      * @param feedUrl - URL of the feed to create
      * @param categoryId - Optional category ID to assign the feed to
-     * @returns Promise resolving to the created feed
+     * @returns Promise resolving to the created feed ID
      */
-    createFeed(feedUrl: string, categoryId?: number): Promise<Feed>;
+    createFeed(feedUrl: string, categoryId?: number): Promise<{
+        feed_id: number;
+    }>;
     /**
      * Deletes a feed.
      * @param feedId - ID of the feed to delete
@@ -232,6 +247,24 @@ declare class MinifluxClient {
      * @param status - New status ('read' or 'unread')
      */
     updateEntryStatus(entryId: number, status: 'read' | 'unread'): Promise<void>;
+    /** Updates the status and/or starred state of multiple entries. */
+    updateEntries(entryIds: number[], changes: {
+        status: 'read' | 'unread' | 'removed';
+        starred?: boolean;
+    } | {
+        status?: 'read' | 'unread' | 'removed';
+        starred: boolean;
+    }): Promise<void>;
+    /** Retrieves entry IDs matching the given filters (Miniflux 2.3.2+). */
+    getEntryIds(filter?: {
+        status?: 'read' | 'unread';
+        starred?: boolean;
+        offset?: number;
+        limit?: number;
+    }): Promise<{
+        total: number;
+        entry_ids: number[];
+    }>;
     /**
      * Toggles the bookmark status of an entry.
      * @param entryId - ID of the entry
@@ -360,6 +393,8 @@ declare class MinifluxClient {
      * @returns Promise resolving to version information
      */
     getVersion(): Promise<string>;
+    /** Retrieves version and build information (Miniflux 2.0.49+). */
+    getVersionInfo(): Promise<VersionInfo>;
     /**
      * Retrieves read/unread counters for feeds.
      * @returns Promise resolving to feed counters
@@ -380,4 +415,5 @@ declare class MinifluxClient {
     getMinifluxEntryUrl(id: number): Promise<string>;
 }
 
-export { type Category, type Enclosure, type Entry, type EntryResultSet, type EntryStatus, type EntryUpdatePayload, type Feed, type FeedCounters, type FeedIcon, type Filter, MinifluxClient, type MinifluxConfig, type User };
+export { MinifluxClient };
+export type { Category, Enclosure, Entry, EntryResultSet, EntryStatus, EntryUpdatePayload, Feed, FeedCounters, FeedIcon, Filter, MinifluxConfig, User, VersionInfo };

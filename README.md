@@ -10,7 +10,7 @@ Unofficial JavaScript SDK for [Miniflux](https://miniflux.app) RSS reader.
 ## Features
 
 - 🔄 Full TypeScript support
-- 📚 Complete Miniflux API coverage
+- 📚 Common Miniflux API endpoints
 - ✨ Modern ESM package
 - 🧪 Comprehensive test coverage
 - 📖 Detailed documentation
@@ -63,7 +63,9 @@ const entries = await client.getEntries({
 
 ## API Reference
 
-The SDK provides methods for all Miniflux API endpoints. Here are some commonly used ones:
+The SDK provides methods for common Miniflux API endpoints:
+
+The `createFeed` result is `{ feed_id }`, matching the server response. Use `getFeed(feed_id)` to retrieve the full feed. `getVersion()` uses `/v1/version` and requires Miniflux 2.0.49 or newer; `getVersionInfo()` returns the full build information.
 
 ### User Methods
 - `getMe()`: Get current user information
@@ -71,7 +73,7 @@ The SDK provides methods for all Miniflux API endpoints. Here are some commonly 
 
 ### Feed Methods
 - `getFeeds()`: Get all feeds
-- `createFeed(feedUrl, categoryId)`: Add a new feed
+- `createFeed(feedUrl, categoryId)`: Add a new feed and return `{ feed_id }`
 - `updateFeed(feedId, changes)`: Update feed settings
 - `refreshFeed(feedId)`: Refresh a feed
 - `deleteFeed(feedId)`: Delete a feed
@@ -80,6 +82,8 @@ The SDK provides methods for all Miniflux API endpoints. Here are some commonly 
 - `getEntries(filter)`: Get entries with optional filters
 - `getEntry(entryId)`: Get a single entry
 - `updateEntryStatus(entryId, status)`: Update entry status
+- `updateEntries(entryIds, changes)`: Update status or starred state in bulk
+- `getEntryIds(filter)`: Get matching entry IDs (Miniflux 2.3.2+)
 - `toggleBookmark(entryId)`: Toggle entry bookmark status
 
 ### Category Methods

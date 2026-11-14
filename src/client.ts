@@ -30,15 +30,16 @@ export class MinifluxClient {
    * @throws {Error} When required authentication parameters are missing
    */
   constructor(config: MinifluxConfig) {
+    const authType = config.authType ?? (config.apiKey ? 'api_key' : 'password')
     if (!config.baseURL) {
       throw new Error('Miniflux base URL is required')
     }
 
-    if (config.authType === 'api_key' && !config.apiKey) {
+    if (authType === 'api_key' && !config.apiKey) {
       throw new Error('Miniflux API key is required')
     }
 
-    if (config.authType === 'password') {
+    if (authType === 'password') {
       if (!config.username) {
         throw new Error('Miniflux username is required')
       }
@@ -60,9 +61,9 @@ export class MinifluxClient {
     })
 
     // Add authentication
-    if (config.authType === 'api_key' && config.apiKey) {
+    if (authType === 'api_key' && config.apiKey) {
       this.headers.set('X-Auth-Token', config.apiKey)
-    } else if (config.authType === 'password' && config.username && config.password) {
+    } else if (authType === 'password' && config.username && config.password) {
       this.headers.set('Authorization', `Basic ${btoa(`${config.username}:${config.password}`)}`)
     }
   }
@@ -87,7 +88,7 @@ export class MinifluxClient {
     }
 
     if (response.status === 201 || response.status === 200) {
-      return isJson ? response.json() : response.text()
+      return isJson ? response.json() : await response.text() as T
     }
 
     if (!response.ok) {
@@ -129,10 +130,10 @@ export class MinifluxClient {
    * Creates a new feed.
    * @param feedUrl - URL of the feed to create
    * @param categoryId - Optional category ID to assign the feed to
-   * @returns Promise resolving to the created feed
+   * @returns Promise resolving to the created feed ID
    */
-  async createFeed(feedUrl: string, categoryId?: number): Promise<Feed> {
-    return this.request<Feed>('/v1/feeds', {
+  async createFeed(feedUrl: string, categoryId?: number): Promise<{ feed_id: number }> {
+    return this.request<{ feed_id: number }>('/v1/feeds', {
       method: 'POST',
       body: JSON.stringify({
         feed_url: feedUrl,
@@ -256,10 +257,25 @@ export class MinifluxClient {
    * @param status - New status ('read' or 'unread')
    */
   async updateEntryStatus(entryId: number, status: 'read' | 'unread'): Promise<void> {
-    await this.request(`/v1/entries/${entryId}`, {
+    await this.updateEntries([entryId], { status })
+  }
+
+  /** Updates the status and/or starred state of multiple entries. */
+  async updateEntries(entryIds: number[], changes: { status: 'read' | 'unread' | 'removed'; starred?: boolean } | { status?: 'read' | 'unread' | 'removed'; starred: boolean }): Promise<void> {
+    await this.request('/v1/entries', {
       method: 'PUT',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ entry_ids: entryIds, ...changes }),
     })
+  }
+
+  /** Retrieves entry IDs matching the given filters (Miniflux 2.3.2+). */
+  async getEntryIds(filter: { status?: 'read' | 'unread'; starred?: boolean; offset?: number; limit?: number } = {}): Promise<{ total: number; entry_ids: number[] }> {
+    const params = new URLSearchParams()
+    for (const [key, value] of Object.entries(filter)) {
+      if (value !== undefined) params.append(key, String(value))
+    }
+    const query = params.toString()
+    return this.request(`/v1/entries/ids${query ? `?${query}` : ''}`)
   }
 
   /**
@@ -494,7 +510,13 @@ export class MinifluxClient {
    * @returns Promise resolving to version information
    */
   async getVersion(): Promise<string> {
-    return this.request('/version', {}, false)
+    const info = await this.getVersionInfo()
+    return info.version
+  }
+
+  /** Retrieves version and build information (Miniflux 2.0.49+). */
+  async getVersionInfo(): Promise<import('./types.ts').VersionInfo> {
+    return this.request('/v1/version')
   }
 
   /**
@@ -513,12 +535,7 @@ export class MinifluxClient {
    * @returns Promise resolving to the search results
    */
   async searchEntries(query: string, limit?: number): Promise<EntryResultSet> {
-    const params = new URLSearchParams()
-    params.append('search', query)
-    if (limit) {
-      params.append('limit', limit.toString())
-    }
-    return this.request(`/v1/entries?search=${params.toString()}}`)
+    return this.getEntries({ search: query, limit })
   }
 
   /**
