@@ -31,4 +31,4 @@ jobs:
       - name: Type check
         run: pnpm tsc --noEmit
       - name: Test
-        run: pnpm exec vitest run test/miniflux.test.ts test/api-contract.test.ts
+        run: pnpm exec vitest run --exclude '**/*.integration.test.ts'
