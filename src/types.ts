@@ -13,7 +13,8 @@ export interface Feed {
   site_url: string
   feed_url: string
   category?: Category
-  icon?: FeedIcon
+  category_id?: number
+  icon?: { feed_id: number; icon_id: number } | null
   etag_header?: string
   last_modified_header?: string
   crawler?: boolean
@@ -138,4 +139,14 @@ export interface EntryUpdatePayload {
 
 export interface EntryStatus {
   status: 'read' | 'unread'
+}
+
+export interface VersionInfo {
+  version: string
+  commit: string
+  build_date: string
+  go_version: string
+  compiler: string
+  arch: string
+  os: string
 }

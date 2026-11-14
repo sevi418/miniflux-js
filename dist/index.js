@@ -10,13 +10,14 @@ class MinifluxClient {
    * @throws {Error} When required authentication parameters are missing
    */
   constructor(config) {
+    const authType = config.authType ?? (config.apiKey ? "api_key" : "password");
     if (!config.baseURL) {
       throw new Error("Miniflux base URL is required");
     }
-    if (config.authType === "api_key" && !config.apiKey) {
+    if (authType === "api_key" && !config.apiKey) {
       throw new Error("Miniflux API key is required");
     }
-    if (config.authType === "password") {
+    if (authType === "password") {
       if (!config.username) {
         throw new Error("Miniflux username is required");
       }
@@ -33,9 +34,9 @@ class MinifluxClient {
       "Content-Type": "application/json",
       "Accept": "application/json"
     });
-    if (config.authType === "api_key" && config.apiKey) {
+    if (authType === "api_key" && config.apiKey) {
       this.headers.set("X-Auth-Token", config.apiKey);
-    } else if (config.authType === "password" && config.username && config.password) {
+    } else if (authType === "password" && config.username && config.password) {
       this.headers.set("Authorization", `Basic ${btoa(`${config.username}:${config.password}`)}`);
     }
   }
@@ -56,7 +57,7 @@ class MinifluxClient {
       return {};
     }
     if (response.status === 201 || response.status === 200) {
-      return isJson ? response.json() : response.text();
+      return isJson ? response.json() : await response.text();
     }
     if (!response.ok) {
       const text = await response.text();
@@ -91,7 +92,7 @@ class MinifluxClient {
    * Creates a new feed.
    * @param feedUrl - URL of the feed to create
    * @param categoryId - Optional category ID to assign the feed to
-   * @returns Promise resolving to the created feed
+   * @returns Promise resolving to the created feed ID
    */
   async createFeed(feedUrl, categoryId) {
     return this.request("/v1/feeds", {
@@ -207,10 +208,23 @@ class MinifluxClient {
    * @param status - New status ('read' or 'unread')
    */
   async updateEntryStatus(entryId, status) {
-    await this.request(`/v1/entries/${entryId}`, {
+    await this.updateEntries([entryId], { status });
+  }
+  /** Updates the status and/or starred state of multiple entries. */
+  async updateEntries(entryIds, changes) {
+    await this.request("/v1/entries", {
       method: "PUT",
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ entry_ids: entryIds, ...changes })
     });
+  }
+  /** Retrieves entry IDs matching the given filters (Miniflux 2.3.2+). */
+  async getEntryIds(filter = {}) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filter)) {
+      if (value !== void 0) params.append(key, String(value));
+    }
+    const query = params.toString();
+    return this.request(`/v1/entries/ids${query ? `?${query}` : ""}`);
   }
   /**
    * Toggles the bookmark status of an entry.
@@ -419,7 +433,12 @@ class MinifluxClient {
    * @returns Promise resolving to version information
    */
   async getVersion() {
-    return this.request("/version", {}, false);
+    const info = await this.getVersionInfo();
+    return info.version;
+  }
+  /** Retrieves version and build information (Miniflux 2.0.49+). */
+  async getVersionInfo() {
+    return this.request("/v1/version");
   }
   /**
    * Retrieves read/unread counters for feeds.
@@ -436,12 +455,7 @@ class MinifluxClient {
    * @returns Promise resolving to the search results
    */
   async searchEntries(query, limit) {
-    const params = new URLSearchParams();
-    params.append("search", query);
-    if (limit) {
-      params.append("limit", limit.toString());
-    }
-    return this.request(`/v1/entries?search=${params.toString()}}`);
+    return this.getEntries({ search: query, limit });
   }
   /**
    * Retrieves the Miniflux URL for an entry.

@@ -121,7 +121,7 @@ describe('MinifluxClient', () => {
       parsing_error_count: 0,
       parsing_error_message: '',
       category: { id: 1, title: 'Test Category', user_id: 1 },
-      icon: { id: 1, data: 'test-data', mime_type: 'image/png' },
+      icon: { feed_id: 1, icon_id: 1 },
       hide_globally: false,
       disabled: false,
       ignore_http_cache: false,
@@ -164,9 +164,9 @@ describe('MinifluxClient', () => {
     })
 
     it('should create feed', async () => {
-      vi.spyOn(client, 'createFeed').mockResolvedValue(mockFeed)
+      vi.spyOn(client, 'createFeed').mockResolvedValue({ feed_id: 1 })
       const feed = await client.createFeed('https://example.com/feed.xml')
-      expect(feed).toEqual(mockFeed)
+      expect(feed).toEqual({ feed_id: 1 })
     })
 
     it('should get feed entries', async () => {
